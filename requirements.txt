@@ -1,0 +1,7 @@
+aiogram==3.25.0
+SQLAlchemy==2.0.46
+aiosqlite==0.22.1
+yookassa==3.10.0
+httpx==0.28.1
+gspread==6.2.1
+google-auth==2.48.0
