@@ -8,10 +8,10 @@ from aiogram.types import Message, CallbackQuery
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.keyboards import buy_keyboard, main_menu_keyboard
-from app.services import UserService
-from app.utils import is_premium_active
-from app.models import User
+from app.keyboards.keyboards import buy_keyboard, main_menu_keyboard
+from app.services.services import UserService
+from app.utils.utils import is_premium_active
+from app.database.models import User
 from sqlalchemy import select
 
 

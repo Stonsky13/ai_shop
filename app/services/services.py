@@ -7,8 +7,8 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import User, Payment
-from app.utils import utcnow_naive, add_days, is_premium_active
+from app.database.models import User, Payment
+from app.utils.utils import utcnow_naive, add_days, is_premium_active
 
 
 logger = logging.getLogger(__name__)

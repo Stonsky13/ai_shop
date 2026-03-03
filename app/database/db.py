@@ -29,5 +29,5 @@ async def init_db(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
         await conn.execute(text("PRAGMA journal_mode=WAL;"))
         await conn.execute(text("PRAGMA foreign_keys=ON;"))
-        from app import models  # noqa: F401
+        from app.database import models  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)

@@ -11,13 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import load_settings, Settings
 from app.logging_setup import setup_logging
-from app.db import build_engine, build_sessionmaker, init_db
-from app.middleware import DbSessionMiddleware
-from app.handlers import router
-from app.yookassa_client import YooKassaClient
-from app.ai_client import AiClient
-from app.sheets_client import SheetsClient
-from app.services import UserService, PaymentService, PaymentPoller
+from app.database.db import build_engine, build_sessionmaker, init_db
+from app.middlewares.middleware import DbSessionMiddleware
+from app.handlers.handlers import router
+from app.clients.yookassa_client import YooKassaClient
+from app.clients.ai_client import AiClient
+from app.clients.sheets_client import SheetsClient
+from app.services.services import UserService, PaymentService, PaymentPoller
 
 logger = logging.getLogger(__name__)
 
