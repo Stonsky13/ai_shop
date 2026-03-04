@@ -4,21 +4,18 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import load_settings, Settings
 from app.logging_setup import setup_logging
-from app.database.db import build_engine, build_sessionmaker, init_db
 from app.middlewares.middleware import DbSessionMiddleware
 from app.handlers.handlers import router
 from app.clients.yookassa_client import YooKassaClient
 from app.clients.ai_client import AiClient
 from app.clients.sheets_client import SheetsClient
 from app.services.services import UserService, PaymentService, PaymentPoller
-
+from app.database.db import create_engine, create_sessionmaker, init_models
 logger = logging.getLogger(__name__)
 
 
@@ -94,23 +91,21 @@ class PaymentFlow:
 
         return f"Платёж пока не подтверждён. Текущий статус: {status}. Попробуй чуть позже."
 
-    async def on_status_update(self, payment_id: str, status: str) -> None:
-        async with db_session() as db:
-            p = await self._pay_svc.get_payment_by_id(db, payment_id)
-            if not p:
-                return
-            await self._pay_svc.update_payment_status(db, payment_id, status)
+    async def on_status_update(self, payment_id: str, status: str, session: AsyncSession) -> None:
+        p = await self._pay_svc.get_payment_by_id(session, payment_id)
+        if not p:
+            return
+        await self._pay_svc.update_payment_status(session, payment_id, status)
 
-    async def on_succeeded(self, payment_id: str, info: dict) -> None:
-        async with db_session() as db:
-            await self._activate_if_needed(db, payment_id, info)
+    async def on_succeeded(self, payment_id: str, info: dict, session: AsyncSession) -> None:
+        await self._activate_if_needed(session, payment_id, info)
 
     async def _activate_if_needed(self, db: AsyncSession, payment_id: str, info: dict) -> None:
         p = await self._pay_svc.get_payment_by_id(db, payment_id)
         if not p:
             return
 
-        if (p.status or "").lower() == "succeeded":
+        if info.get("status") != "succeeded":
             return
 
         await self._pay_svc.update_payment_status(db, payment_id, "succeeded")
@@ -150,31 +145,21 @@ class AiFlow:
             return "Ошибка при обращении к AI. Попробуй позже."
 
 
-_engine = None
-_sm = None
-
-
-def db_session():
-    if _sm is None:
-        raise RuntimeError("DB is not initialized")
-    return _sm()
-
-
 async def main() -> None:
     settings = load_settings()
     setup_logging(settings.log_level)
 
-    global _engine, _sm
-    _engine = build_engine(settings.sqlite_path)
-    _sm = build_sessionmaker(_engine)
-    await init_db(_engine)
+    engine = create_engine(settings.database_url)
+    sessionmaker = create_sessionmaker(engine)
+
+    await init_models(engine)
 
     bot = Bot(
         token=settings.tg_bot_token,
     )
     dp = Dispatcher()
-    dp.message.middleware(DbSessionMiddleware(_sm))
-    dp.callback_query.middleware(DbSessionMiddleware(_sm))
+    dp.message.middleware(DbSessionMiddleware(sessionmaker))
+    dp.callback_query.middleware(DbSessionMiddleware(sessionmaker))
 
     yk = YooKassaClient(settings.yookassa_shop_id, settings.yookassa_secret_key, settings.yookassa_return_url)
     ai = AiClient(settings.ai_base_url, settings.ai_api_key, settings.ai_model)
@@ -189,8 +174,9 @@ async def main() -> None:
         attempts=settings.payment_poll_attempts,
         interval_sec=settings.payment_poll_interval_sec,
         yookassa_get_status_fn=yk.get_payment,
-        on_succeeded_async_fn=lambda payment_id, info: pay_flow_placeholder["obj"].on_succeeded(payment_id, info),
-        on_status_update_async_fn=lambda payment_id, status: pay_flow_placeholder["obj"].on_status_update(payment_id, status),
+        on_succeeded_async_fn=lambda payment_id, info, session: pay_flow_placeholder["obj"].on_succeeded(payment_id, info, session),
+        on_status_update_async_fn=lambda payment_id, status, session: pay_flow_placeholder["obj"].on_status_update(payment_id, status, session),
+        sessionmaker=sessionmaker,
     )
 
     pay_flow = PaymentFlow(settings, yk, sheets, user_svc, pay_svc, bot, poller)

@@ -14,7 +14,6 @@ class User(Base):
     tg_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
     username: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow, nullable=False)
 
 
 class Payment(Base):
@@ -25,11 +24,9 @@ class Payment(Base):
     tg_id: Mapped[int] = mapped_column(Integer, index=True)
 
     amount_rub: Mapped[float] = mapped_column(Float, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)  # pending/succeeded/canceled/waiting_for_capture...
+    status: Mapped[str] = mapped_column(String(32), nullable=False)  # pending/succeeded/canceled
     confirmation_url: Mapped[str] = mapped_column(String(2048), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.utcnow, nullable=False)
 
 
 Index("ix_payments_tg_id_created_at", Payment.tg_id, Payment.created_at)

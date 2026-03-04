@@ -21,12 +21,10 @@ class UserService:
         if user:
             if username and user.username != username:
                 user.username = username
-                await session.commit()
             return user
 
         user = User(tg_id=tg_id, username=username or "", premium_until=None)
         session.add(user)
-        await session.commit()
         return user
 
     async def activate_subscription(self, session: AsyncSession, tg_id: int, days: int) -> datetime:
@@ -35,12 +33,10 @@ class UserService:
         if not user:
             user = User(tg_id=tg_id, username="", premium_until=None)
             session.add(user)
-            await session.commit()
 
         now = utcnow_naive()
         base = user.premium_until if (user.premium_until and user.premium_until > now) else now
         user.premium_until = add_days(base, days)
-        await session.commit()
         return user.premium_until
 
     async def get_status_text(self, session: AsyncSession, tg_id: int) -> str:
@@ -66,12 +62,9 @@ class PaymentService:
             tg_id=tg_id,
             amount_rub=amount_rub,
             status=status,
-            confirmation_url=confirmation_url,
-            created_at=utcnow_naive(),
-            updated_at=utcnow_naive(),
+            confirmation_url=confirmation_url
         )
         session.add(p)
-        await session.commit()
         return p
 
     async def get_last_payment(self, session: AsyncSession, tg_id: int) -> Payment | None:
@@ -86,7 +79,6 @@ class PaymentService:
             .where(Payment.payment_id == payment_id)
             .values(status=status, updated_at=utcnow_naive())
         )
-        await session.commit()
 
     async def get_payment_by_id(self, session: AsyncSession, payment_id: str) -> Payment | None:
         q = await session.execute(select(Payment).where(Payment.payment_id == payment_id))
@@ -101,7 +93,9 @@ class PaymentPoller:
         yookassa_get_status_fn,
         on_succeeded_async_fn,
         on_status_update_async_fn,
+        sessionmaker
     ) -> None:
+        self._sessionmaker = sessionmaker
         self._attempts = attempts
         self._interval = interval_sec
         self._get_status = yookassa_get_status_fn
@@ -115,14 +109,14 @@ class PaymentPoller:
                 status = (info.get("status") or "").lower()
                 paid = bool(info.get("paid", False))
 
-                await self._on_status_update(payment_id, status)
-
-                if paid and status == "succeeded":
-                    await self._on_succeeded(payment_id, info)
-                    return
-
-                if status in {"canceled"}:
-                    return
+                async with self._sessionmaker() as session:
+                    async with session.begin():
+                        await self._on_status_update(payment_id, status, session)
+                        if paid and status == "succeeded":
+                            await self._on_succeeded(payment_id, info, session)
+                            return
+                        if status in {"canceled"}:
+                            return
 
             except Exception:
                 logger.exception("Payment polling failed for %s (attempt %s/%s)", payment_id, i + 1, self._attempts)
