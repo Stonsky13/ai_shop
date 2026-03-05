@@ -30,7 +30,7 @@ class Settings:
     sheets_spreadsheet_id: str
     sheets_sheet_name: str
 
-    sqlite_path: str
+    database_url: str
 
     payment_poll_attempts: int
     payment_poll_interval_sec: int
@@ -57,7 +57,7 @@ def load_settings() -> Settings:
         sheets_spreadsheet_id=_must("SHEETS_SPREADSHEET_ID"),
         sheets_sheet_name=(os.getenv("SHEETS_SHEET_NAME") or "Sheet1").strip(),
 
-        sqlite_path=(os.getenv("SQLITE_PATH") or "./data/app.db").strip(),
+        database_url=(os.getenv("DATABASE_URL") or "./data/app.db").strip(),
 
         payment_poll_attempts=int((os.getenv("PAYMENT_POLL_ATTEMPTS") or "24").strip()),
         payment_poll_interval_sec=int((os.getenv("PAYMENT_POLL_INTERVAL_SEC") or "5").strip()),
