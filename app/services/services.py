@@ -90,17 +90,19 @@ class PaymentPoller:
         self,
         attempts: int,
         interval_sec: int,
-        yookassa_get_status_fn,
-        on_succeeded_async_fn,
-        on_status_update_async_fn,
+        yookassa_get_status_fn,        
         sessionmaker
     ) -> None:
         self._sessionmaker = sessionmaker
         self._attempts = attempts
         self._interval = interval_sec
         self._get_status = yookassa_get_status_fn
-        self._on_succeeded = on_succeeded_async_fn
-        self._on_status_update = on_status_update_async_fn
+        self._on_succeeded = None
+        self._on_status_update = None
+    
+    def set_callbacks(self, on_succeeded, on_status_update):
+        self._on_succeeded = on_succeeded
+        self._on_status_update = on_status_update
 
     async def run(self, payment_id: str) -> None:
         for i in range(self._attempts):
